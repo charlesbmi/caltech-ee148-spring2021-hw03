@@ -122,6 +122,7 @@ def cli_main():
     # ------------
     trainer = pl.Trainer.from_argparse_args(args)
     trainer.fit(model, train_loader, val_loader)
+    print(trainer.callback_metrics)
 
     # ------------
     # testing
