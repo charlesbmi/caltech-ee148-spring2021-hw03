@@ -1,30 +1,30 @@
-<div align="center">    
- 
-# EE148: MNIST Classification  
+<div align="center">
+
+# EE148: MNIST Classification
 
 </div>
- 
-## Description   
+
+## Description
 Classify MNIST digits.
 
-## How to run   
-First, install dependencies  
+## How to run
+First, install dependencies
 ```bash
-# clone project   
+# clone project
 git clone https://github.com/charlesincharge/caltech-ee148-spring2021-hw03
 
-# install project (conda environment recommended) 
+# install project (conda environment recommended)
 cd caltech-ee148-spring2021-hw03
-pip install -e .   
+pip install -e .
 pip install -r requirements.txt
- ```   
- Next, navigate to any file and run it.   
- ```bash
+```
+Next, navigate to any file and run it.
+```bash
 # module folder
 cd project
 
-# run module (example: mnist as your main contribution)   
-python lit_classifier_main.py    
+# run module
+python lit_image_classifier.py
 ```
 
 ## Imports
