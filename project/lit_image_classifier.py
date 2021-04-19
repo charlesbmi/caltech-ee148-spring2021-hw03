@@ -72,6 +72,7 @@ def cli_main():
     parser = ArgumentParser()
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--hidden_dim', type=int, default=128)
+    parser.add_argument('--num-workers', type=int, default=8)
     parser = pl.Trainer.add_argparse_args(parser)
     parser = LitImageClassifier.add_model_specific_args(parser)
     args = parser.parse_args()
@@ -83,9 +84,9 @@ def cli_main():
     mnist_test = MNIST('', train=False, download=True, transform=transforms.ToTensor())
     mnist_train, mnist_val = random_split(dataset, [55000, 5000])
 
-    train_loader = DataLoader(mnist_train, batch_size=args.batch_size)
-    val_loader = DataLoader(mnist_val, batch_size=args.batch_size)
-    test_loader = DataLoader(mnist_test, batch_size=args.batch_size)
+    train_loader = DataLoader(mnist_train, batch_size=args.batch_size, num_workers=args.num_workers)
+    val_loader = DataLoader(mnist_val, batch_size=args.batch_size, num_workers=args.num_workers)
+    test_loader = DataLoader(mnist_test, batch_size=args.batch_size, num_workers=args.num_workers)
 
     # ------------
     # model
