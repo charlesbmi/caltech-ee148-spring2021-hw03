@@ -22,7 +22,7 @@ class Backbone(torch.nn.Module):
         return x
 
 
-class LitClassifier(pl.LightningModule):
+class LitImageClassifier(pl.LightningModule):
     def __init__(self, backbone, learning_rate=1e-3):
         super().__init__()
         self.save_hyperparameters()
@@ -73,7 +73,7 @@ def cli_main():
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--hidden_dim', type=int, default=128)
     parser = pl.Trainer.add_argparse_args(parser)
-    parser = LitClassifier.add_model_specific_args(parser)
+    parser = LitImageClassifier.add_model_specific_args(parser)
     args = parser.parse_args()
 
     # ------------
@@ -90,7 +90,7 @@ def cli_main():
     # ------------
     # model
     # ------------
-    model = LitClassifier(Backbone(hidden_dim=args.hidden_dim), args.learning_rate)
+    model = LitImageClassifier(Backbone(hidden_dim=args.hidden_dim), args.learning_rate)
 
     # ------------
     # training

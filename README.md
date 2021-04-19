@@ -31,11 +31,11 @@ python lit_image_classifier.py
 This project is setup as a package which means you can now easily import any file into any other file like so:
 ```python
 from project.datasets.mnist import mnist
-from project.lit_classifier_main import LitClassifier
+from project.lit_image_classifier import LitImageClassifier
 from pytorch_lightning import Trainer
 
 # model
-model = LitClassifier()
+model = LitImageClassifier()
 
 # data
 train, val, test = mnist()
