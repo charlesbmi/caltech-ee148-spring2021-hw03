@@ -73,6 +73,8 @@ def cli_main():
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--hidden_dim', type=int, default=128)
     parser.add_argument('--num-workers', type=int, default=8)
+    parser.add_argument('--evaluate', action='store_true', default=False,
+                        help='evaluate your model on the official test set')
     parser = pl.Trainer.add_argparse_args(parser)
     parser = LitImageClassifier.add_model_specific_args(parser)
     args = parser.parse_args()
@@ -102,8 +104,9 @@ def cli_main():
     # ------------
     # testing
     # ------------
-    result = trainer.test(test_dataloaders=test_loader)
-    print(result)
+    if args.evaluate:
+        result = trainer.test(test_dataloaders=test_loader)
+        print(result)
 
 
 if __name__ == '__main__':
