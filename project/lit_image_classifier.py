@@ -63,22 +63,31 @@ class LitImageClassifier(pl.LightningModule):
         return parser
 
 
+def parse_args():
+    parser = ArgumentParser()
+    parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--hidden_dim', type=int, default=128)
+    parser.add_argument('--num-workers', type=int, default=8)
+    parser.add_argument('--random-seed', type=int, default=1234)
+    parser.add_argument('--val-size', type=float, default=0.15,
+                        help='passed to train_test_split')
+    parser.add_argument('--evaluate', action='store_true', default=False,
+                        help='evaluate your model on the official test set')
+
+    parser = pl.Trainer.add_argparse_args(parser)
+    parser = LitImageClassifier.add_model_specific_args(parser)
+    args = parser.parse_args()
+
+    return args
+
+
 def cli_main():
     """Command-line interface for training/validating model."""
 
     # ------------
     # args
     # ------------
-    parser = ArgumentParser()
-    parser.add_argument('--batch_size', default=32, type=int)
-    parser.add_argument('--hidden_dim', type=int, default=128)
-    parser.add_argument('--num-workers', type=int, default=8)
-    parser.add_argument('--random-seed', type=int, default=1234)
-    parser.add_argument('--evaluate', action='store_true', default=False,
-                        help='evaluate your model on the official test set')
-    parser = pl.Trainer.add_argparse_args(parser)
-    parser = LitImageClassifier.add_model_specific_args(parser)
-    args = parser.parse_args()
+    args = parse_args()
 
     # Seed generator
     pl.seed_everything(args.random_seed)
