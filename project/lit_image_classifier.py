@@ -1,9 +1,12 @@
 from argparse import ArgumentParser
 
+import numpy as np
+from sklearn.model_selection import train_test_split
+
 import torch
 import pytorch_lightning as pl
 from torch.nn import functional as F
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, Subset
 
 from torchvision.datasets.mnist import MNIST
 from torchvision import transforms
@@ -95,9 +98,15 @@ def cli_main():
     # ------------
     # data
     # ------------
-    dataset = MNIST('', train=True, download=True, transform=transforms.ToTensor())
+    mnist_train_val = MNIST('', train=True, download=True, transform=transforms.ToTensor())
     mnist_test = MNIST('', train=False, download=True, transform=transforms.ToTensor())
-    mnist_train, mnist_val = random_split(dataset, [55000, 5000])
+    # Stratified train/val split
+    train_idx, val_idx = train_test_split(
+            np.arange(len(mnist_train_val)),
+            test_size=args.val_size,
+            stratify=mnist_train_val.targets)
+    mnist_train = Subset(mnist_train_val, train_idx)
+    mnist_val = Subset(mnist_train_val, val_idx)
 
     train_loader = DataLoader(mnist_train, batch_size=args.batch_size, num_workers=args.num_workers)
     val_loader = DataLoader(mnist_val, batch_size=args.batch_size, num_workers=args.num_workers)
