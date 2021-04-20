@@ -12,46 +12,53 @@ from torchvision.datasets.mnist import MNIST
 from torchvision import transforms
 
 
-class Backbone(torch.nn.Module):
-    def __init__(self, hidden_dim=128):
-        super().__init__()
-        self.l1 = torch.nn.Linear(28 * 28, hidden_dim)
-        self.l2 = torch.nn.Linear(hidden_dim, 10)
-
-    def forward(self, x):
-        x = x.view(x.size(0), -1)
-        x = torch.relu(self.l1(x))
-        x = torch.relu(self.l2(x))
-        return x
-
-
 class LitImageClassifier(pl.LightningModule):
-    def __init__(self, backbone, learning_rate=1e-3):
+    def __init__(self, dropout: float = 0.5, learning_rate: float = 1e-3):
         super().__init__()
         self.save_hyperparameters()
-        self.backbone = backbone
+
+        # Based on https://github.com/elijahcole/caltech-ee148-spring2020-hw03/blob/master/main.py
+        self.conv1 = torch.nn.Conv2d(in_channels=1, out_channels=8, kernel_size=(3,3), stride=1)
+        self.conv2 = torch.nn.Conv2d(8, 8, 3, 1)
+        self.dropout1 = torch.nn.Dropout2d(self.hparams.dropout)
+        self.dropout2 = torch.nn.Dropout2d(self.hparams.dropout)
+        self.fc1 = torch.nn.Linear(200, 64)
+        self.fc2 = torch.nn.Linear(64, 10)
 
     def forward(self, x):
-        # use forward for inference/predictions
-        embedding = self.backbone(x)
-        return embedding
+        """Inference / prediction"""
+        x = torch.relu(self.conv1(x))
+        x = torch.max_pool2d(x, 2)
+        x = self.dropout1(x)
+
+        x = torch.relu(self.conv2(x))
+        x = torch.max_pool2d(x, 2)
+        x = self.dropout2(x)
+
+        x = torch.flatten(x, 1)
+        x = torch.relu(self.fc1(x))
+
+        x = self.fc2(x)
+        output = torch.log_softmax(x, dim=1)
+
+        return output
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self.backbone(x)
+        y_hat = self(x)
         loss = F.cross_entropy(y_hat, y)
         self.log('train_loss', loss, on_epoch=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self.backbone(x)
+        y_hat = self(x)
         loss = F.cross_entropy(y_hat, y)
         self.log('valid_loss', loss, on_step=True)
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self.backbone(x)
+        y_hat = self(x)
         loss = F.cross_entropy(y_hat, y)
         self.log('test_loss', loss)
 
@@ -115,7 +122,7 @@ def cli_main():
     # ------------
     # model
     # ------------
-    model = LitImageClassifier(Backbone(hidden_dim=args.hidden_dim), args.learning_rate)
+    model = LitImageClassifier(learning_rate=args.learning_rate)
 
     # ------------
     # training
