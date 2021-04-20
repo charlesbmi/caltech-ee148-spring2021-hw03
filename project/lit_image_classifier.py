@@ -65,7 +65,7 @@ class LitImageClassifier(pl.LightningModule):
 
         # Metrics take probs/classes (not logits), so convert them first
         y_prob = self.softmax(y_logits)
-        self.log('train_acc', self.train_acc(y_prob, y), on_step=True, on_epoch=False)
+        self.log('train_acc', self.train_acc(y_prob, y), on_epoch=True)
 
         return loss
 
@@ -78,7 +78,7 @@ class LitImageClassifier(pl.LightningModule):
 
         # Metrics take probs/classes (not logits), so convert them first
         y_prob = self.softmax(y_logits)
-        self.log('valid_acc', self.valid_acc(y_prob, y), on_step=True, on_epoch=False)
+        self.log('valid_acc', self.valid_acc(y_prob, y), on_epoch=True)
 
     def test_step(self, batch, batch_idx):
         x, y = batch
