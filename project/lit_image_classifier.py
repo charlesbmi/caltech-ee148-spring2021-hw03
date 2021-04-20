@@ -131,19 +131,34 @@ def cli_main():
     # ------------
     # data
     # ------------
-    mnist_train_val = MNIST('', train=True, download=True, transform=transforms.ToTensor())
-    mnist_test = MNIST('', train=False, download=True, transform=transforms.ToTensor())
+    # Augment/normalize training set
+    pre_process = transforms.Compose([       # Data preprocessing
+        transforms.ToTensor(),           # Add data augmentation here
+        transforms.Normalize((0.1307,), (0.3081,))
+    ])
+    augment = transforms.RandomAffine(degrees=10, translate=(0.1, 0.1))
+    mnist_train_val = MNIST('', train=True, download=True,
+        transform=transforms.Compose([
+            augment, # Include data-augmentation only for train dataset
+            pre_process,
+            ])
+    )
     # Stratified train/val split
     train_idx, val_idx = train_test_split(
             np.arange(len(mnist_train_val)),
             test_size=args.val_size,
             stratify=mnist_train_val.targets)
     mnist_train = Subset(mnist_train_val, train_idx)
-    mnist_val = Subset(mnist_train_val, val_idx)
-
     train_loader = DataLoader(mnist_train, batch_size=args.batch_size, num_workers=args.num_workers)
+
+    # Re-instantiate the validation data, but without data-augmentation
+    mnist_train_val = MNIST('', train=True, download=True, transform=pre_process)
+    mnist_val = Subset(mnist_train_val, val_idx)
     val_loader = DataLoader(mnist_val, batch_size=args.batch_size, num_workers=args.num_workers)
-    test_loader = DataLoader(mnist_test, batch_size=args.batch_size, num_workers=args.num_workers)
+
+    if args.evaluate:
+        mnist_test = MNIST('', train=False, download=True, transform=pre_process)
+        test_loader = DataLoader(mnist_test, batch_size=args.batch_size, num_workers=args.num_workers)
 
     # ------------
     # model
@@ -155,7 +170,8 @@ def cli_main():
     # ------------
     trainer = pl.Trainer.from_argparse_args(args)
     trainer.fit(model, train_loader, val_loader)
-    print(trainer.callback_metrics)
+    print('callback_metrics:', trainer.callback_metrics)
+    print('logged_metrics:', trainer.logged_metrics)
 
     # ------------
     # testing
