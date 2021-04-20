@@ -4,6 +4,8 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 import torch
+import torch.nn as nn
+import torchmetrics
 import pytorch_lightning as pl
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Subset
@@ -18,49 +20,73 @@ class LitImageClassifier(pl.LightningModule):
         self.save_hyperparameters()
 
         # Based on https://github.com/elijahcole/caltech-ee148-spring2020-hw03/blob/master/main.py
-        self.conv1 = torch.nn.Conv2d(in_channels=1, out_channels=8, kernel_size=(3,3), stride=1)
-        self.conv2 = torch.nn.Conv2d(8, 8, 3, 1)
-        self.dropout1 = torch.nn.Dropout2d(self.hparams.dropout)
-        self.dropout2 = torch.nn.Dropout2d(self.hparams.dropout)
-        self.fc1 = torch.nn.Linear(200, 64)
-        self.fc2 = torch.nn.Linear(64, 10)
+        self.model = nn.Sequential(
+            # Convolutional layer 1
+            nn.Conv2d(in_channels=1, out_channels=8, kernel_size=(3,3), stride=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Dropout2d(self.hparams.dropout),
+            # Convolutional layer 2
+            nn.Conv2d(8, 8, 3, 1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Dropout2d(self.hparams.dropout),
+            # Convolutional -> fully-connected
+            nn.Flatten(),
+            # Fully-connected layer 1
+            nn.Linear(200, 64),
+            nn.ReLU(),
+            # Fully-connected output layer
+            nn.Linear(64, 10),
+        )
+        # For converting logits to probabilities
+        self.softmax = nn.Softmax(dim=1)
+
+        # Use cross-entropy loss on logits (raw linear output, no [log-]softmax)
+        self.loss = nn.CrossEntropyLoss()
+
+        # Metrics: can extend with MetricCollection
+        metrics = torchmetrics.Accuracy()
+        self.train_acc = metrics.clone()
+        self.valid_acc = metrics.clone()
+        self.test_acc = metrics.clone()
 
     def forward(self, x):
         """Inference / prediction"""
-        x = torch.relu(self.conv1(x))
-        x = torch.max_pool2d(x, 2)
-        x = self.dropout1(x)
-
-        x = torch.relu(self.conv2(x))
-        x = torch.max_pool2d(x, 2)
-        x = self.dropout2(x)
-
-        x = torch.flatten(x, 1)
-        x = torch.relu(self.fc1(x))
-
-        x = self.fc2(x)
-        output = torch.log_softmax(x, dim=1)
-
-        return output
+        pred = self.model(x)
+        return pred
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
+        y_logits = self(x)
+
+        loss = self.loss(y_logits, y)
         self.log('train_loss', loss, on_epoch=True)
+
+        # Metrics take probs/classes (not logits), so convert them first
+        y_prob = self.softmax(y_logits)
+        self.log('train_acc', self.train_acc(y_prob, y), on_step=True, on_epoch=False)
+
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log('valid_loss', loss, on_step=True)
+        y_logits = self(x)
+
+        loss = self.loss(y_logits, y)
+        self.log('valid_loss', loss, on_epoch=True)
+
+        # Metrics take probs/classes (not logits), so convert them first
+        y_prob = self.softmax(y_logits)
+        self.log('valid_acc', self.valid_acc(y_prob, y), on_step=True, on_epoch=False)
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log('test_loss', loss)
+        y_logits = self(x)
+
+        # Metrics take probs/classes (not logits), so convert them first
+        y_prob = self.softmax(y_logits)
+        self.log('test_acc', self.test_acc(y_prob, y), on_epoch=True)
 
     def configure_optimizers(self):
         # self.hparams available because we called self.save_hyperparameters()
