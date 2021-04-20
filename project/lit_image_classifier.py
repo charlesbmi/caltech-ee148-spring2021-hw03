@@ -136,7 +136,12 @@ def cli_main():
         transforms.ToTensor(),           # Add data augmentation here
         transforms.Normalize((0.1307,), (0.3081,))
     ])
-    augment = transforms.RandomAffine(degrees=10, translate=(0.1, 0.1))
+    augment = transforms.RandomAffine(
+        degrees=10,
+        translate=(0.1, 0.1), # fraction
+        scale=(0.9, 1.1), # factor
+        shear=10, # degrees
+        )
     mnist_train_val = MNIST('', train=True, download=True,
         transform=transforms.Compose([
             augment, # Include data-augmentation only for train dataset
