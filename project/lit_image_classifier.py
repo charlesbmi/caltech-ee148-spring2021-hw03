@@ -15,29 +15,30 @@ from torchvision import transforms
 
 
 class LitImageClassifier(pl.LightningModule):
-    def __init__(self, dropout: float = 0.5, learning_rate: float = 1e-3):
+    def __init__(self, num_classes: int, dropout: float = 0.1, learning_rate: float = 1e-3):
         super().__init__()
         self.save_hyperparameters()
 
         # Based on https://github.com/elijahcole/caltech-ee148-spring2020-hw03/blob/master/main.py
         self.model = nn.Sequential(
             # Convolutional layer 1
-            nn.Conv2d(in_channels=1, out_channels=8, kernel_size=(3,3), stride=1),
+            nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, stride=1),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.MaxPool2d(2),
-            nn.Dropout2d(self.hparams.dropout),
             # Convolutional layer 2
-            nn.Conv2d(8, 8, 3, 1),
+            nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, stride=1),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.MaxPool2d(2),
-            nn.Dropout2d(self.hparams.dropout),
             # Convolutional -> fully-connected
             nn.Flatten(),
             # Fully-connected layer 1
-            nn.Linear(200, 64),
+            nn.Linear(800, 128),
             nn.ReLU(),
+            nn.Dropout(self.hparams.dropout),
             # Fully-connected output layer
-            nn.Linear(64, 10),
+            nn.Linear(128, num_classes),
         )
         # For converting logits to probabilities
         self.softmax = nn.Softmax(dim=1)
@@ -167,7 +168,8 @@ def cli_main():
     # ------------
     # model
     # ------------
-    model = LitImageClassifier(learning_rate=args.learning_rate)
+    num_classes = len(np.unique(mnist_train_val.targets))
+    model = LitImageClassifier(num_classes=num_classes, learning_rate=args.learning_rate)
 
     # ------------
     # training
