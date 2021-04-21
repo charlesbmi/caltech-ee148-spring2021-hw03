@@ -132,20 +132,19 @@ def cli_main():
     # data
     # ------------
     # Augment/normalize training set
-    pre_process = transforms.Compose([       # Data preprocessing
-        transforms.ToTensor(),           # Add data augmentation here
-        transforms.Normalize((0.1307,), (0.3081,))
-    ])
-    augment = transforms.RandomAffine(
+    pre_process = transforms.ToTensor() # Also scales to [0, 1]
+    prenorm_augment = transforms.RandomAffine(
         degrees=10,
         translate=(0.1, 0.1), # fraction
         scale=(0.9, 1.1), # factor
-        shear=10, # degrees
+        shear=5, # degrees
         )
+    postnorm_augment = transforms.RandomErasing(p=0.2, scale=(0.02, 0.2))
     mnist_train_val = MNIST('', train=True, download=True,
         transform=transforms.Compose([
-            augment, # Include data-augmentation only for train dataset
+            prenorm_augment, # Include data-augmentation only for train dataset
             pre_process,
+            postnorm_augment,
             ])
     )
     # Stratified train/val split
