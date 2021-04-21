@@ -105,9 +105,11 @@ def parse_args():
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--hidden_dim', type=int, default=128)
     parser.add_argument('--num-workers', type=int, default=8)
-    parser.add_argument('--random-seed', type=int, default=1234)
+    parser.add_argument('--random_seed', type=int, default=1234)
     parser.add_argument('--val-size', type=float, default=0.15,
                         help='passed to train_test_split')
+    parser.add_argument('--subsample_train', type=float, default=1,
+                        help='ratio of training data to use, useful for learning curves')
     parser.add_argument('--evaluate', action='store_true', default=False,
                         help='evaluate your model on the official test set')
 
@@ -153,6 +155,8 @@ def cli_main():
             np.arange(len(mnist_train_val)),
             test_size=args.val_size,
             stratify=mnist_train_val.targets)
+    # Sub-sample training data for learning curve
+    train_idx = np.random.choice(train_idx, int(args.subsample_train * len(train_idx)), replace=False)
     mnist_train = Subset(mnist_train_val, train_idx)
     train_loader = DataLoader(mnist_train, batch_size=args.batch_size, num_workers=args.num_workers)
 
@@ -175,16 +179,15 @@ def cli_main():
     # training
     # ------------
     trainer = pl.Trainer.from_argparse_args(args)
-    if not args.evaluate:
-        trainer.fit(model, train_loader, val_loader)
-        print('callback_metrics:', trainer.callback_metrics)
-        print('logged_metrics:', trainer.logged_metrics)
+    print('Saving logs to:', trainer.log_dir)
+    trainer.fit(model, train_loader, val_loader)
+    print('callback_metrics:', trainer.callback_metrics)
+    print('logged_metrics:', trainer.logged_metrics)
 
     # ------------
     # testing
     # ------------
     if args.evaluate:
-        model = model.load_from_checkpoint(args.resume_from_checkpoint)
         result = trainer.test(model, test_dataloaders=test_loader)
         print('test_results:', result)
 
