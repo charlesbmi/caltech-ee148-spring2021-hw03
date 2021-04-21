@@ -175,16 +175,18 @@ def cli_main():
     # training
     # ------------
     trainer = pl.Trainer.from_argparse_args(args)
-    trainer.fit(model, train_loader, val_loader)
-    print('callback_metrics:', trainer.callback_metrics)
-    print('logged_metrics:', trainer.logged_metrics)
+    if not args.evaluate:
+        trainer.fit(model, train_loader, val_loader)
+        print('callback_metrics:', trainer.callback_metrics)
+        print('logged_metrics:', trainer.logged_metrics)
 
     # ------------
     # testing
     # ------------
     if args.evaluate:
-        result = trainer.test(test_dataloaders=test_loader)
-        print(result)
+        model = model.load_from_checkpoint(args.resume_from_checkpoint)
+        result = trainer.test(model, test_dataloaders=test_loader)
+        print('test_results:', result)
 
 
 if __name__ == '__main__':
