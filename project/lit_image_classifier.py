@@ -95,14 +95,28 @@ class LitImageClassifier(pl.LightningModule):
         y_prob = self.softmax(y_logits)
         self.log('test_acc', self.test_acc(y_prob, y), on_epoch=True)
 
-        # Return predictions/targets for summary
-        y_pred = torch.argmax(y_prob, 1)
-        return {'prediction': y_pred, 'target': y}
+        # Feature embedding using up to the final layer
+        embedding = self.model[:-1](x)
+
+        return {'pred_proba': y_prob, 'target': y,
+                'input': x, 'embedding': embedding}
 
     def test_epoch_end(self, outputs):
-        predictions = torch.cat([out['prediction'] for out in outputs])
+        predictions = torch.cat([out['pred_proba'] for out in outputs])
         targets = torch.cat([out['target'] for out in outputs])
+        self.log_confusion_matrix(targets, predictions)
 
+        inputs = torch.cat([out['input'] for out in outputs])
+        embeddings = torch.cat([out['embedding'] for out in outputs])
+
+        self.logger.experiment.add_embedding(
+            embeddings,
+            metadata=targets,
+            label_img=inputs,
+            tag='embedding',
+        )
+
+    def log_confusion_matrix(self, targets, predictions):
         confusion_matrix = pl.metrics.functional.confusion_matrix(
             predictions, targets, num_classes=self.hparams.num_classes
         )
@@ -115,6 +129,8 @@ class LitImageClassifier(pl.LightningModule):
 
         fig, ax = plt.subplots(figsize=(10, 7))
         sns.heatmap(df_cm, annot=True, cmap='viridis', ax=ax)
+        ax.set_xlabel('predicted class')
+        ax.set_ylabel('true class')
         plt.close(fig)
 
         self.logger.experiment.add_figure("Confusion matrix", fig, self.current_epoch)
