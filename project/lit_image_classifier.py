@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 
+import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import train_test_split
 
@@ -190,6 +191,36 @@ def cli_main():
     if args.evaluate:
         result = trainer.test(model, test_dataloaders=test_loader)
         print('test_results:', result)
+        # Convert to CPU for evaluation / printing
+        model = model.to(torch.device('cpu'))
+        error_images = []
+        err_preds = []
+        labels = []
+        for batch, targets in test_loader:
+            pred_proba = model.softmax(model.forward(batch))
+            preds = torch.argmax(pred_proba, 1)
+            err_indices = np.argwhere(targets != preds)
+
+            for err_idx in err_indices.numpy().flatten():
+                error_images.append(batch[err_idx].numpy().squeeze())
+                labels.append(targets[err_idx].numpy().squeeze())
+                err_preds.append(preds[err_idx].numpy().squeeze())
+
+            if len(labels) >= 9:
+                print(f'error_images={len(error_images)} x {error_images[0].shape}')
+                print(f'labels={labels}')
+                print(f'err_preds={err_preds}')
+                break
+
+        # Plot these all!
+        fig = plt.figure(figsize=(12, 12))
+        n_rows = 3
+        n_cols = 3
+        for plot_idx, (img, label, pred) in enumerate(zip(error_images, labels, err_preds)):
+            ax = fig.add_subplot(n_rows, n_cols, plot_idx + 1)  # matplotlib is 1-indexed
+            ax.imshow(img, cmap=plt.get_cmap('gray'))
+            ax.set_title('true: {}; pred: {}'.format(label, pred))
+        plt.show()
 
 
 if __name__ == '__main__':
