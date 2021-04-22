@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import train_test_split
 
+import pandas as pd
+import seaborn as sns
+
 import torch
 import torch.nn as nn
 import torchmetrics
@@ -90,6 +93,28 @@ class LitImageClassifier(pl.LightningModule):
         y_prob = self.softmax(y_logits)
         self.log('test_acc', self.test_acc(y_prob, y), on_epoch=True)
 
+        # Return predictions/targets for summary
+        y_pred = torch.argmax(y_prob, 1)
+        return {'prediction': y_pred, 'target': y}
+
+    def test_epoch_end(self, outputs):
+        predictions = torch.cat([out['prediction'] for out in outputs])
+        targets = torch.cat([out['target'] for out in outputs])
+
+        confusion_matrix = pl.metrics.functional.confusion_matrix(predictions, targets, num_classes=self.hparams.num_classes)
+
+        df_cm = pd.DataFrame(
+            confusion_matrix.cpu().numpy(),
+            index=range(self.hparams.num_classes),
+            columns=range(self.hparams.num_classes)
+        )
+
+        fig, ax = plt.subplots(figsize=(10,7))
+        sns.heatmap(df_cm, annot=True, cmap='viridis', ax=ax)
+        plt.close(fig)
+
+        self.logger.experiment.add_figure("Confusion matrix", fig, self.current_epoch)
+
     def configure_optimizers(self):
         # self.hparams available because we called self.save_hyperparameters()
         return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
@@ -113,6 +138,10 @@ def parse_args():
                         help='ratio of training data to use, useful for learning curves')
     parser.add_argument('--evaluate', action='store_true', default=False,
                         help='evaluate your model on the official test set')
+    parser.add_argument('--visualize_errors', action='store_true', default=False,
+                        help='visualize example errors and confusion matrix')
+    parser.add_argument('--visualize_filters', action='store_true', default=False,
+                        help='visualize layer-1 kernels')
 
     parser = pl.Trainer.add_argparse_args(parser)
     parser = LitImageClassifier.add_model_specific_args(parser)
@@ -191,8 +220,12 @@ def cli_main():
     if args.evaluate:
         result = trainer.test(model, test_dataloaders=test_loader)
         print('test_results:', result)
+
+    if args.evaluate and args.visualize_errors:
         # Convert to CPU for evaluation / printing
         model = model.to(torch.device('cpu'))
+
+        # Visualize example errors
         error_images = []
         err_preds = []
         labels = []
@@ -220,6 +253,19 @@ def cli_main():
             ax = fig.add_subplot(n_rows, n_cols, plot_idx + 1)  # matplotlib is 1-indexed
             ax.imshow(img, cmap=plt.get_cmap('gray'))
             ax.set_title('true: {}; pred: {}'.format(label, pred))
+        plt.show()
+
+    if args.visualize_filters:
+        # Visualize 1st layer of filters
+        fig = plt.figure(figsize=(12, 12))
+        n_rows = 4
+        n_cols = 4
+        n_plots = n_rows * n_cols
+        for plot_idx, weight_tensor in enumerate(model.model[0].weight[:n_plots]):
+            weight = weight_tensor.detach().numpy().squeeze()
+
+            ax = fig.add_subplot(n_rows, n_cols, plot_idx + 1)  # matplotlib is 1-indexed
+            ax.imshow(weight, cmap=plt.get_cmap('gray'))
         plt.show()
 
 
