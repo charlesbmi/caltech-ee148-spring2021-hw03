@@ -308,7 +308,9 @@ def cli_main():
             ax = fig.add_subplot(
                 n_rows, n_cols, plot_idx + 1
             )  # matplotlib is 1-indexed
-            ax.imshow(weight, cmap=plt.get_cmap('gray'))
+            im = ax.imshow(weight, cmap=plt.get_cmap('gray'))
+            fig.colorbar(im, ax=ax)
+        plt.suptitle('filters')
         plt.show()
 
 
