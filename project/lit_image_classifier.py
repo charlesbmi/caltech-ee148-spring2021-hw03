@@ -19,7 +19,9 @@ from torchvision import transforms
 
 
 class LitImageClassifier(pl.LightningModule):
-    def __init__(self, num_classes: int, dropout: float = 0.1, learning_rate: float = 1e-3):
+    def __init__(
+        self, num_classes: int, dropout: float = 0.1, learning_rate: float = 1e-3
+    ):
         super().__init__()
         self.save_hyperparameters()
 
@@ -101,15 +103,17 @@ class LitImageClassifier(pl.LightningModule):
         predictions = torch.cat([out['prediction'] for out in outputs])
         targets = torch.cat([out['target'] for out in outputs])
 
-        confusion_matrix = pl.metrics.functional.confusion_matrix(predictions, targets, num_classes=self.hparams.num_classes)
+        confusion_matrix = pl.metrics.functional.confusion_matrix(
+            predictions, targets, num_classes=self.hparams.num_classes
+        )
 
         df_cm = pd.DataFrame(
             confusion_matrix.cpu().numpy(),
             index=range(self.hparams.num_classes),
-            columns=range(self.hparams.num_classes)
+            columns=range(self.hparams.num_classes),
         )
 
-        fig, ax = plt.subplots(figsize=(10,7))
+        fig, ax = plt.subplots(figsize=(10, 7))
         sns.heatmap(df_cm, annot=True, cmap='viridis', ax=ax)
         plt.close(fig)
 
@@ -132,16 +136,33 @@ def parse_args():
     parser.add_argument('--hidden_dim', type=int, default=128)
     parser.add_argument('--num-workers', type=int, default=8)
     parser.add_argument('--random_seed', type=int, default=1234)
-    parser.add_argument('--val-size', type=float, default=0.15,
-                        help='passed to train_test_split')
-    parser.add_argument('--subsample_train', type=float, default=1,
-                        help='ratio of training data to use, useful for learning curves')
-    parser.add_argument('--evaluate', action='store_true', default=False,
-                        help='evaluate your model on the official test set')
-    parser.add_argument('--visualize_errors', action='store_true', default=False,
-                        help='visualize example errors and confusion matrix')
-    parser.add_argument('--visualize_filters', action='store_true', default=False,
-                        help='visualize layer-1 kernels')
+    parser.add_argument(
+        '--val-size', type=float, default=0.15, help='passed to train_test_split'
+    )
+    parser.add_argument(
+        '--subsample_train',
+        type=float,
+        default=1,
+        help='ratio of training data to use, useful for learning curves',
+    )
+    parser.add_argument(
+        '--evaluate',
+        action='store_true',
+        default=False,
+        help='evaluate your model on the official test set',
+    )
+    parser.add_argument(
+        '--visualize_errors',
+        action='store_true',
+        default=False,
+        help='visualize example errors and confusion matrix',
+    )
+    parser.add_argument(
+        '--visualize_filters',
+        action='store_true',
+        default=False,
+        help='visualize layer-1 kernels',
+    )
 
     parser = pl.Trainer.add_argparse_args(parser)
     parser = LitImageClassifier.add_model_specific_args(parser)
@@ -165,45 +186,61 @@ def cli_main():
     # data
     # ------------
     # Augment/normalize training set
-    pre_process = transforms.ToTensor() # Also scales to [0, 1]
+    pre_process = transforms.ToTensor()  # Also scales to [0, 1]
     prenorm_augment = transforms.RandomAffine(
         degrees=10,
-        translate=(0.1, 0.1), # fraction
-        scale=(0.9, 1.1), # factor
-        shear=5, # degrees
-        )
+        translate=(0.1, 0.1),  # fraction
+        scale=(0.9, 1.1),  # factor
+        shear=5,  # degrees
+    )
     postnorm_augment = transforms.RandomErasing(p=0.2, scale=(0.02, 0.2))
-    mnist_train_val = MNIST('', train=True, download=True,
-        transform=transforms.Compose([
-            prenorm_augment, # Include data-augmentation only for train dataset
-            pre_process,
-            postnorm_augment,
-            ])
+    mnist_train_val = MNIST(
+        '',
+        train=True,
+        download=True,
+        transform=transforms.Compose(
+            [
+                prenorm_augment,  # Include data-augmentation only for train dataset
+                pre_process,
+                postnorm_augment,
+            ]
+        ),
     )
     # Stratified train/val split
     train_idx, val_idx = train_test_split(
-            np.arange(len(mnist_train_val)),
-            test_size=args.val_size,
-            stratify=mnist_train_val.targets)
+        np.arange(len(mnist_train_val)),
+        test_size=args.val_size,
+        stratify=mnist_train_val.targets,
+    )
     # Sub-sample training data for learning curve
-    train_idx = np.random.choice(train_idx, int(args.subsample_train * len(train_idx)), replace=False)
+    train_idx = np.random.choice(
+        train_idx, int(args.subsample_train * len(train_idx)), replace=False
+    )
     mnist_train = Subset(mnist_train_val, train_idx)
-    train_loader = DataLoader(mnist_train, batch_size=args.batch_size, num_workers=args.num_workers)
+    train_loader = DataLoader(
+        mnist_train, batch_size=args.batch_size, num_workers=args.num_workers
+    )
 
     # Re-instantiate the validation data, but without data-augmentation
     mnist_train_val = MNIST('', train=True, download=True, transform=pre_process)
     mnist_val = Subset(mnist_train_val, val_idx)
-    val_loader = DataLoader(mnist_val, batch_size=args.batch_size, num_workers=args.num_workers)
+    val_loader = DataLoader(
+        mnist_val, batch_size=args.batch_size, num_workers=args.num_workers
+    )
 
     if args.evaluate:
         mnist_test = MNIST('', train=False, download=True, transform=pre_process)
-        test_loader = DataLoader(mnist_test, batch_size=args.batch_size, num_workers=args.num_workers)
+        test_loader = DataLoader(
+            mnist_test, batch_size=args.batch_size, num_workers=args.num_workers
+        )
 
     # ------------
     # model
     # ------------
     num_classes = len(np.unique(mnist_train_val.targets))
-    model = LitImageClassifier(num_classes=num_classes, learning_rate=args.learning_rate)
+    model = LitImageClassifier(
+        num_classes=num_classes, learning_rate=args.learning_rate
+    )
 
     # ------------
     # training
@@ -249,8 +286,12 @@ def cli_main():
         fig = plt.figure(figsize=(12, 12))
         n_rows = 3
         n_cols = 3
-        for plot_idx, (img, label, pred) in enumerate(zip(error_images, labels, err_preds)):
-            ax = fig.add_subplot(n_rows, n_cols, plot_idx + 1)  # matplotlib is 1-indexed
+        for plot_idx, (img, label, pred) in enumerate(
+            zip(error_images, labels, err_preds)
+        ):
+            ax = fig.add_subplot(
+                n_rows, n_cols, plot_idx + 1
+            )  # matplotlib is 1-indexed
             ax.imshow(img, cmap=plt.get_cmap('gray'))
             ax.set_title('true: {}; pred: {}'.format(label, pred))
         plt.show()
@@ -264,7 +305,9 @@ def cli_main():
         for plot_idx, weight_tensor in enumerate(model.model[0].weight[:n_plots]):
             weight = weight_tensor.detach().numpy().squeeze()
 
-            ax = fig.add_subplot(n_rows, n_cols, plot_idx + 1)  # matplotlib is 1-indexed
+            ax = fig.add_subplot(
+                n_rows, n_cols, plot_idx + 1
+            )  # matplotlib is 1-indexed
             ax.imshow(weight, cmap=plt.get_cmap('gray'))
         plt.show()
 
