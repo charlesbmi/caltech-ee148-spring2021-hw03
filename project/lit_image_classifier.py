@@ -116,6 +116,8 @@ class LitImageClassifier(pl.LightningModule):
             tag='embedding',
         )
 
+        self.visualize_nearest_neighbors(inputs, embeddings)
+
     def log_confusion_matrix(self, targets, predictions):
         confusion_matrix = pl.metrics.functional.confusion_matrix(
             predictions, targets, num_classes=self.hparams.num_classes
@@ -134,6 +136,43 @@ class LitImageClassifier(pl.LightningModule):
         plt.close(fig)
 
         self.logger.experiment.add_figure("Confusion matrix", fig, self.current_epoch)
+
+    def visualize_nearest_neighbors(self, inputs, embeddings, num_samples=5, num_neighbors_per_sample=8):
+        sample_indices = torch.randperm(len(inputs))[:num_samples]
+
+        # Find distances from these sampled images to each of the other images
+        samples_input = inputs[sample_indices]
+        samples_embedding = embeddings[sample_indices]
+
+        embedding_distances = torch.cdist(embeddings, samples_embedding)
+        # embedding distances is now size: (len(inputs), num_samples)
+
+        # Find closest neighbors. Note that 0-index will be `sample_input` trivially
+        closest_neighbors = torch.argsort(embedding_distances, dim=0)[1:(num_neighbors_per_sample + 1)]
+
+        # Transfer inputs to cpu and remove channel dimension
+        inputs = inputs.cpu().squeeze(dim=1)
+
+        # Create subplot, each row is a sample and each column is a neighbor of
+        # the sample at the top of the col
+        n_rows = num_samples
+        n_cols = num_neighbors_per_sample + 1
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 8))
+        for anchor_idx, sample_idx in enumerate(sample_indices):
+            # Plot the anchor image in the top row
+            axes[anchor_idx, 0].imshow(inputs[sample_idx], cmap=plt.get_cmap('gray'))
+            axes[anchor_idx, 0].set_title('anchor image {}'.format(anchor_idx))
+            # Then plot the rest
+            for col_idx, neighbor in enumerate(closest_neighbors[:, anchor_idx]):
+                axes[anchor_idx, col_idx + 1].imshow(inputs[neighbor], cmap=plt.get_cmap('gray'))
+
+        # Settings to apply to all axes. No axis ticks
+        for ax in axes.flatten():
+            ax.axis('off')
+
+        plt.close(fig)
+        self.logger.experiment.add_figure("Nearest neighbors", fig, self.current_epoch)
+
 
     def configure_optimizers(self):
         # self.hparams available because we called self.save_hyperparameters()
